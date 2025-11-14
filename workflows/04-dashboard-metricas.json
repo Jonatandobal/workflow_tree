@@ -1,0 +1,83 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "path": "dashboard",
+        "options": {}
+      },
+      "id": "webhook2",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        304
+      ],
+      "webhookId": "5241fde3-c4c7-4d88-8ae9-5f2cadb31435"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT 'consultas_hoy' as metric, COUNT(*) as value FROM messages WHERE DATE(created_at) = CURRENT_DATE",
+        "options": {}
+      },
+      "id": "postgres2",
+      "name": "PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        464,
+        304
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BeqYldvITzTPaVDD",
+          "name": "Postgres-miguel-pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "options": {}
+      },
+      "id": "response2",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        688,
+        304
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PostgreSQL": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "52d2515e8ec57cc41db077498298356feba70d5c6d22e5ab0bc92cc9467fc786"
+  }
+}
