@@ -1,0 +1,326 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 15 * * *"
+            }
+          ]
+        }
+      },
+      "id": "2ad2bf1b-2308-4c65-b560-7259b493e2cc",
+      "name": "Schedule - Cada 5 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        32,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM cotizaciones_cambios_log\nWHERE notificacion_enviada = false\nAND cambio_timestamp > NOW() - INTERVAL '10 minutes'\nORDER BY cambio_timestamp DESC",
+        "options": {}
+      },
+      "id": "ee44be36-60a3-492e-a627-ff3e12ae6598",
+      "name": "Verificar Cambios Pendientes",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        256,
+        128
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BeqYldvITzTPaVDD",
+          "name": "Postgres-miguel-pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $('Verificar Cambios Pendientes').all().length }}",
+              "operation": "larger"
+            }
+          ]
+        }
+      },
+      "id": "d01847ba-6c64-42e6-a299-390bc570142d",
+      "name": "Hay Cambios?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        480,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT chat_id, nombre FROM suscripciones_cotizacion WHERE activo = true",
+        "options": {}
+      },
+      "id": "444d2351-e6f4-4d36-bff9-efc0a6f2383b",
+      "name": "Obtener Contactos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        704,
+        128
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BeqYldvITzTPaVDD",
+          "name": "Postgres-miguel-pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT divisa, precio_compra, precio_venta FROM divisas_stock ORDER BY divisa",
+        "options": {}
+      },
+      "id": "0264dc7b-86ec-4ca7-8f87-da65344908d1",
+      "name": "Obtener Cotizaciones Actuales",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        912,
+        128
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BeqYldvITzTPaVDD",
+          "name": "Postgres-miguel-pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cambios = $('Verificar Cambios Pendientes').all();\nconst cotizaciones = $('Obtener Cotizaciones Actuales').all();\nconst contactos = $('Obtener Contactos').all();\n\n// Fecha y hora actual\nconst ahora = new Date();\nconst hora = ahora.toLocaleTimeString('es-AR', {\n  hour: '2-digit',\n  minute: '2-digit',\n  timeZone: 'America/Argentina/Buenos_Aires'\n});\n\n// Emojis\nconst emojiMap = {\n  'USD': '💵',\n  'EUR': '💶',\n  'BTC': '🟠',\n  'USDT': '🟢',\n  'ETH': '🔷',\n  'REAL': '🇧🇷',\n  'ARS': '🇦🇷'\n};\n\n// Construir mensaje de actualización\nlet mensaje = `🔔 *ACTUALIZACION DE COTIZACIONES*\\n`;\nmensaje += `━━━━━━━━━━━━━━━━━━\\n`;\nmensaje += `🕐 ${hora} hs\\n\\n`;\n\n// Mostrar divisas que cambiaron\nmensaje += `📊 *Cambios detectados:*\\n\\n`;\nfor (const cambio of cambios) {\n  const c = cambio.json;\n  const emoji = emojiMap[c.divisa] || '💰';\n  \n  mensaje += `${emoji} *${c.divisa}*\\n`;\n  \n  // Mostrar cambio en precio de venta\n  if (c.precio_venta_anterior !== c.precio_venta_nuevo) {\n    const diff = c.precio_venta_nuevo - c.precio_venta_anterior;\n    const icono = diff > 0 ? '📈' : '📉';\n    mensaje += `   Venta: $${Number(c.precio_venta_anterior).toFixed(2)} → $${Number(c.precio_venta_nuevo).toFixed(2)} ${icono}\\n`;\n  }\n  \n  // Mostrar cambio en precio de compra\n  if (c.precio_compra_anterior !== c.precio_compra_nuevo) {\n    const diff = c.precio_compra_nuevo - c.precio_compra_anterior;\n    const icono = diff > 0 ? '📈' : '📉';\n    mensaje += `   Compra: $${Number(c.precio_compra_anterior).toFixed(2)} → $${Number(c.precio_compra_nuevo).toFixed(2)} ${icono}\\n`;\n  }\n  \n  mensaje += `\\n`;\n}\n\nmensaje += `━━━━━━━━━━━━━━━━━━\\n`;\nmensaje += `📋 *Cotizaciones actuales:*\\n\\n`;\n\n// Mostrar todas las cotizaciones actuales\nfor (const item of cotizaciones) {\n  const cot = item.json;\n  const emoji = emojiMap[cot.divisa] || '💰';\n  \n  mensaje += `${emoji} *${cot.divisa}*\\n`;\n  mensaje += `   📈 Venta: $${Number(cot.precio_venta).toFixed(2)}\\n`;\n  mensaje += `   📉 Compra: $${Number(cot.precio_compra).toFixed(2)}\\n\\n`;\n}\n\nmensaje += `━━━━━━━━━━━━━━━━━━\\n`;\nmensaje += `💬 ¿Querés hacer alguna operación?`;\n\n// Crear items para cada contacto\nconst resultado = contactos.map(contacto => ({\n  json: {\n    chat_id: contacto.json.chat_id,\n    nombre: contacto.json.nombre,\n    mensaje: mensaje,\n    cambios_ids: cambios.map(c => c.json.id)\n  }\n}));\n\nreturn resultado;"
+      },
+      "id": "3e081d50-b5e7-4e77-8edd-a38b64702fdf",
+      "name": "Formatear Notificación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "d9c4f865-e987-4ba8-92bc-47ed65e842d6",
+      "name": "Loop Contactos",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1360,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://3.15.229.241:8080/message/sendText/Hemisferia",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "k6belq451scepgzvgjqw"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $json.chat_id }}"
+            },
+            {
+              "name": "textMessage.text",
+              "value": "={{ $json.mensaje }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5d7b294d-f2ae-4738-8677-3c30eee24764",
+      "name": "Enviar Notificación",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "0378a463-e2a8-4111-8072-dc0fd655597b",
+      "name": "Wait 2s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1792,
+        128
+      ],
+      "webhookId": "wait-cambios"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE cotizaciones_cambios_log\nSET notificacion_enviada = true\nWHERE notificacion_enviada = false\n  AND cambio_timestamp > NOW() - INTERVAL '10 minutes'\nRETURNING *;",
+        "options": {}
+      },
+      "id": "2b4a8fd8-365a-4f9a-8c30-d64c24b0c274",
+      "name": "Marcar como Notificado",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2016,
+        128
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "BeqYldvITzTPaVDD",
+          "name": "Postgres-miguel-pepsi"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule - Cada 5 min": {
+      "main": [
+        [
+          {
+            "node": "Verificar Cambios Pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Cambios Pendientes": {
+      "main": [
+        [
+          {
+            "node": "Hay Cambios?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hay Cambios?": {
+      "main": [
+        [
+          {
+            "node": "Obtener Contactos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Contactos": {
+      "main": [
+        [
+          {
+            "node": "Obtener Cotizaciones Actuales",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Cotizaciones Actuales": {
+      "main": [
+        [
+          {
+            "node": "Formatear Notificación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Notificación": {
+      "main": [
+        [
+          {
+            "node": "Loop Contactos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Contactos": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Enviar Notificación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Notificación": {
+      "main": [
+        [
+          {
+            "node": "Wait 2s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2s": {
+      "main": [
+        [
+          {
+            "node": "Marcar como Notificado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar como Notificado": {
+      "main": [
+        [
+          {
+            "node": "Loop Contactos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "52d2515e8ec57cc41db077498298356feba70d5c6d22e5ab0bc92cc9467fc786"
+  }
+}
