@@ -1,0 +1,729 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "747968a6-30b3-4ab8-9865-6ee9f5b6d7fe",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1232,
+        816
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "divisas_stock",
+        "returnAll": true,
+        "matchType": "allFilters"
+      },
+      "id": "06b080b0-af78-49ee-be4c-a82e1bc27ebf",
+      "name": "Get All Stocks1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -784,
+        816
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// VALIDAR DISPONIBILIDAD - VERSIÓN COMPLETA Y FUNCIONANDO\n// Este nodo reemplaza tanto a \"Validar Input1\" como a \"Validar Disponibilidad1\"\n// Mode: Run Once for All Items\n\n// ========================================\n// 1. OBTENER DATOS DE PARSE INPUT\n// ========================================\nconst parseInputNode = $('Parse Input');\nlet input;\n\ntry {\n  input = parseInputNode.first().json;\n  console.log('📥 Input de Parse Input:', JSON.stringify(input, null, 2));\n} catch (error) {\n  throw new Error('❌ No se pudo leer Parse Input. Asegúrate que el nodo Parse Input se ejecutó correctamente. Error: ' + error.message);\n}\n\n// ========================================\n// 2. VALIDAR QUE PARSE INPUT TIENE DATOS\n// ========================================\nif (!input || !input.divisa_origen || !input.cantidad_origen || !input.divisa_destino) {\n  throw new Error(`❌ Parse Input tiene datos incompletos:\\n${JSON.stringify(input, null, 2)}\\n\\nDebe tener: divisa_origen, cantidad_origen, divisa_destino`);\n}\n\n// ========================================\n// 3. OBTENER STOCKS DISPONIBLES\n// ========================================\nconst stocksData = $input.all().map(item => item.json);\nconsole.log('📊 Stocks disponibles:', stocksData.length, 'divisas');\nconsole.log('📊 Divisas:', stocksData.map(s => s.divisa).join(', '));\n\n// ========================================\n// 4. BUSCAR STOCKS DE LAS DIVISAS\n// ========================================\nconst stockOrigen = stocksData.find(s => s.divisa === input.divisa_origen);\nconst stockDestino = stocksData.find(s => s.divisa === input.divisa_destino);\n\nconsole.log('🔍 Buscando:', input.divisa_origen, '→', input.divisa_destino);\nconsole.log('🔍 Stock origen:', stockOrigen ? `${stockOrigen.divisa} (${stockOrigen.stock_disponible})` : '❌ NO ENCONTRADO');\nconsole.log('🔍 Stock destino:', stockDestino ? `${stockDestino.divisa} (${stockDestino.stock_disponible})` : '❌ NO ENCONTRADO');\n\n// Validar que existan ambas divisas\nif (!stockOrigen || !stockDestino) {\n  const divisaFaltante = !stockOrigen ? input.divisa_origen : input.divisa_destino;\n  console.log('❌ Divisa no encontrada:', divisaFaltante);\n  \n  return [{\n    json: {\n      ...input,\n      success: false,\n      debe_escalar: true,\n      message: `❌ *DIVISA NO ENCONTRADA*\\n\\nLa divisa ${divisaFaltante} no existe en el sistema.\\n\\nDivisas disponibles: ${stocksData.map(s => s.divisa).join(', ')}\\n\\n⏳ Un operador revisará tu solicitud.`,\n      tipo_escalamiento: 'divisa_invalida',\n      stockOrigen: stockOrigen || null,\n      stockDestino: stockDestino || null\n    }\n  }];\n}\n\n// ========================================\n// 5. CALCULAR CANTIDAD DESTINO\n// ========================================\nlet cantidad_destino = input.cantidad_destino || 0;\n\nif (!cantidad_destino || cantidad_destino === 0) {\n  console.log('📊 Calculando cantidad_destino automáticamente...');\n  \n  const precio_origen = parseFloat(stockOrigen.precio_compra);\n  const precio_destino = parseFloat(stockDestino.precio_venta);\n  \n  if (input.divisa_origen === 'USD' && input.divisa_destino === 'ARS') {\n    cantidad_destino = input.cantidad_origen * precio_destino;\n    console.log(`   USD → ARS: ${input.cantidad_origen} * ${precio_destino} = ${cantidad_destino}`);\n  } else if (input.divisa_origen === 'ARS' && input.divisa_destino === 'USD') {\n    cantidad_destino = input.cantidad_origen / precio_destino;\n    console.log(`   ARS → USD: ${input.cantidad_origen} / ${precio_destino} = ${cantidad_destino}`);\n  } else {\n    cantidad_destino = (input.cantidad_origen * precio_origen) / precio_destino;\n    console.log(`   ${input.divisa_origen} → ${input.divisa_destino}: (${input.cantidad_origen} * ${precio_origen}) / ${precio_destino} = ${cantidad_destino}`);\n  }\n  \n  cantidad_destino = Math.round(cantidad_destino * 100) / 100;\n}\n\nconsole.log(`✅ Cantidad destino final: ${cantidad_destino} ${input.divisa_destino}`);\n\n// ========================================\n// 6. CALCULAR NUEVOS STOCKS\n// ========================================\nconst nuevoStockOrigen = parseFloat(stockOrigen.stock_disponible) + input.cantidad_origen;\nconst nuevoStockDestino = parseFloat(stockDestino.stock_disponible) - cantidad_destino;\n\nconsole.log(`📊 Stock ${input.divisa_origen}: ${stockOrigen.stock_disponible} + ${input.cantidad_origen} = ${nuevoStockOrigen}`);\nconsole.log(`📊 Stock ${input.divisa_destino}: ${stockDestino.stock_disponible} - ${cantidad_destino} = ${nuevoStockDestino}`);\n\n// ========================================\n// 7. VALIDACIÓN: STOCK INSUFICIENTE\n// ========================================\nif (nuevoStockDestino < 0) {\n  const faltante = Math.abs(nuevoStockDestino);\n  console.log(`❌ Stock insuficiente: falta ${faltante} ${input.divisa_destino}`);\n  \n  return [{\n    json: {\n      ...input,\n      cantidad_destino: cantidad_destino,\n      success: false,\n      debe_escalar: true,\n      message: `🔴 *STOCK INSUFICIENTE*\\n\\nNo hay suficiente ${input.divisa_destino}.\\n\\n📊 Disponible: ${parseFloat(stockDestino.stock_disponible).toLocaleString('es-AR', { maximumFractionDigits: 2 })}\\n📉 Necesita: ${cantidad_destino.toLocaleString('es-AR', { maximumFractionDigits: 2 })}\\n❌ Faltante: ${faltante.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`,\n      tipo_escalamiento: 'stock_insuficiente',\n      stockOrigen,\n      stockDestino\n    }\n  }];\n}\n\n// ========================================\n// 8. VALIDACIÓN: STOCK CRÍTICO\n// ========================================\nconst STOCK_MINIMO = input.divisa_destino === 'ARS' ? 50000 : (input.divisa_destino === 'USD' ? 100 : 10);\n\nif (nuevoStockDestino < STOCK_MINIMO && nuevoStockDestino >= 0) {\n  console.log(`⚠️ Stock crítico: ${nuevoStockDestino} < ${STOCK_MINIMO}`);\n  \n  return [{\n    json: {\n      ...input,\n      cantidad_destino: cantidad_destino,\n      success: false,\n      debe_escalar: true,\n      message: `⚠️ *STOCK CRÍTICO*\\n\\nLa operación dejaría el stock de ${input.divisa_destino} muy bajo.\\n\\n📊 Actual: ${parseFloat(stockDestino.stock_disponible).toLocaleString('es-AR', { maximumFractionDigits: 2 })}\\n📉 Después: ${nuevoStockDestino.toLocaleString('es-AR', { maximumFractionDigits: 2 })}\\n🔴 Mínimo: ${STOCK_MINIMO.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`,\n      tipo_escalamiento: 'stock_critico',\n      stockOrigen,\n      stockDestino,\n      nuevoStockDestino\n    }\n  }];\n}\n\n// ========================================\n// 9. VALIDACIÓN: MONTO MÁXIMO\n// ========================================\nconst MONTO_MAXIMO = 2000000;\n\nlet valorOperacion;\nif (input.divisa_destino === 'ARS') {\n  valorOperacion = cantidad_destino;\n} else if (input.divisa_origen === 'ARS') {\n  valorOperacion = input.cantidad_origen;\n} else {\n  const precioVentaARS = parseFloat(stockDestino.precio_venta);\n  valorOperacion = cantidad_destino * precioVentaARS;\n}\n\nconsole.log(`💰 Valor de la operación: ${valorOperacion.toLocaleString('es-AR')} ARS`);\n\nif (valorOperacion > MONTO_MAXIMO) {\n  console.log(`⚠️ Monto alto: ${valorOperacion} > ${MONTO_MAXIMO}`);\n  \n  return [{\n    json: {\n      ...input,\n      cantidad_destino: cantidad_destino,\n      success: false,\n      debe_escalar: true,\n      message: `💰 *MONTO ALTO*\\n\\nEl valor supera el límite automático.\\n\\n💵 Operación: $${valorOperacion.toLocaleString('es-AR', { maximumFractionDigits: 2 })}\\n🔒 Límite: $${MONTO_MAXIMO.toLocaleString('es-AR')}`,\n      tipo_escalamiento: 'monto_alto',\n      stockOrigen,\n      stockDestino,\n      valorOperacion\n    }\n  }];\n}\n\n// ========================================\n// 10. ✅ TODO OK - CONTINUAR\n// ========================================\nconsole.log('✅ Todas las validaciones pasaron correctamente');\n\nreturn [{\n  json: {\n    ...input,\n    cantidad_destino: cantidad_destino,\n    success: true,\n    debe_escalar: false,\n    stockOrigen,\n    stockDestino,\n    nuevoStockOrigen,\n    nuevoStockDestino,\n    valorOperacion,\n    idStockOrigen: stockOrigen.id,\n    idStockDestino: stockDestino.id\n  }\n}];"
+      },
+      "id": "620887dd-847f-4a48-8dd6-cfe079afeaac",
+      "name": "Validar Disponibilidad1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -560,
+        816
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.debe_escalar }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "d6903546-2933-4e8b-84c4-26eedd9c53c2",
+      "name": "Debe Escalar?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -336,
+        816
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "divisas_stock",
+        "filterType": "string",
+        "filterString": "=id=eq.{{ $json.idStockOrigen }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "stock_disponible",
+              "fieldValue": "={{ $json.nuevoStockOrigen }}"
+            },
+            {
+              "fieldId": "stock_disponible",
+              "fieldValue": "={{ $json.nuevoStockDestino }}"
+            }
+          ]
+        }
+      },
+      "id": "adc0cef6-7e8b-4996-8247-4975185cc92d",
+      "name": "Update Stock Origen1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        912
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "divisas_stock",
+        "filterType": "string",
+        "filterString": "=id=eq.{{ $('Debe Escalar?1').item.json.idStockDestino }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "stock_disponible",
+              "fieldValue": "={{ $('Debe Escalar?1').item.json.nuevoStockDestino }}"
+            }
+          ]
+        }
+      },
+      "id": "2c36b6a9-23d2-4a84-babb-3af73ed43512",
+      "name": "Update Stock Destino1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        112,
+        912
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "operaciones_cambio",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "usuario_telegram_id",
+              "fieldValue": "={{ $json.usuario_telegram_id }}"
+            },
+            {
+              "fieldId": "usuario_telegram_nombre",
+              "fieldValue": "={{ $json.usuario_telegram_nombre }}"
+            },
+            {
+              "fieldId": "divisa_entrada",
+              "fieldValue": "={{ $json.divisa_entrada }}"
+            },
+            {
+              "fieldId": "cantidad_entrada",
+              "fieldValue": "={{ $json.cantidad_entrada }}"
+            },
+            {
+              "fieldId": "precio_entrada",
+              "fieldValue": "={{ $json.precio_entrada }}"
+            },
+            {
+              "fieldId": "precio_salida",
+              "fieldValue": "={{ $json.stockOrigen.precio_venta }}"
+            },
+            {
+              "fieldId": "valor_entrada_usd",
+              "fieldValue": "={{ $json.valor_entrada_usd }}"
+            },
+            {
+              "fieldId": "divisa_salida",
+              "fieldValue": "={{ $json.divisa_salida }}"
+            },
+            {
+              "fieldId": "cantidad_salida",
+              "fieldValue": "={{ $json.cantidad_salida }}"
+            },
+            {
+              "fieldId": "precio_salida",
+              "fieldValue": "={{ $json.precio_salida }}"
+            },
+            {
+              "fieldId": "valor_salida_usd",
+              "fieldValue": "={{ $json.valor_salida_usd }}"
+            },
+            {
+              "fieldId": "tasa_cambio",
+              "fieldValue": "={{ $json.tasa_cambio }}"
+            },
+            {
+              "fieldId": "estado",
+              "fieldValue": "completada"
+            },
+            {
+              "fieldId": "notas",
+              "fieldValue": "={{ $json.notas }}"
+            }
+          ]
+        }
+      },
+      "id": "0cc7e99e-623b-4e96-9004-f98b2da4d5e5",
+      "name": "Registrar Operación1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        560,
+        912
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Validar Disponibilidad1').first().json;\n\nreturn {\n  json: {\n    success: true,\n    debe_escalar: false,\n    message: `✅ *OPERACIÓN COMPLETADA*\\n━━━━━━━━━━━━━━━━━━\\n\\n📤 Entregaste: ${data.cantidad_origen.toLocaleString('es-AR')} ${data.divisa_origen}\\n📥 Recibiste: ${data.cantidad_destino.toLocaleString('es-AR')} ${data.divisa_destino}\\n\\n💱 Tasa: 1 ${data.divisa_origen} = ${(data.cantidad_destino / data.cantidad_origen).toFixed(4)} ${data.divisa_destino}\\n\\n📊 Stocks actualizados\\n📅 ${new Date().toLocaleString('es-AR')}\\n\\n¡Gracias!`\n  }\n};"
+      },
+      "id": "7e6e8a06-3244-471b-b946-269bc0b8c0ea",
+      "name": "Respuesta OK1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2128,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert"
+      },
+      "id": "5a4cd68a-d5b0-4f88-b6bb-69e0c0674026",
+      "name": "Registrar Escalamiento1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        720
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/YOUR_WORKSPACE/YOUR_CHANNEL/YOUR_WEBHOOK_TOKEN",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"🚨 *OPERACIÓN ESCALADA - REQUIERE APROBACIÓN*\\n\\n👤 *Usuario:* {{ $json.usuario_telegram_nombre }} (ID: {{ $json.usuario_telegram_id }})\\n\\n📤 *Solicita cambiar:*\\n   {{ $json.cantidad_origen }} {{ $json.divisa_origen }}\\n\\n📥 *Por:*\\n   {{ $json.cantidad_destino }} {{ $json.divisa_destino }}\\n\\n⚠️ *Motivo:*\\n{{ $json.message }}\\n\\n🔍 *Tipo:* {{ $json.tipo_escalamiento }}\\n\\n━━━━━━━━━━━━━━━━━━\\n⏰ {{ $now.toFormat('dd/MM/yyyy HH:mm') }}\"\n}",
+        "options": {}
+      },
+      "id": "4bddc20d-664f-45b5-ae24-bff4a597604e",
+      "name": "Notificar Slack1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        112,
+        720
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Validar Disponibilidad1').first().json;\n\nreturn {\n  json: {\n    success: false,\n    debe_escalar: true,\n    message: data.message,\n    tipo_escalamiento: data.tipo_escalamiento\n  }\n};"
+      },
+      "id": "b952e9ea-e677-4052-97c4-95ac0fc545f9",
+      "name": "Respuesta Escalado1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $('Debe Escalar?1').item.json;\n\nconst divisa_entrada = data.divisa_origen;\nconst cantidad_entrada = data.cantidad_origen;\nconst precio_entrada = data.stockOrigen.precio_compra;\n\nconst divisa_salida = data.divisa_destino;\nconst cantidad_salida = data.cantidad_destino;\nconst precio_salida = data.stockDestino.precio_venta;\n\nlet valor_entrada_usd, valor_salida_usd;\n\nif (divisa_entrada === 'USD') {\n  valor_entrada_usd = cantidad_entrada;\n} else if (divisa_entrada === 'ARS') {\n  valor_entrada_usd = cantidad_entrada / precio_salida;\n} else {\n  valor_entrada_usd = (cantidad_entrada * precio_entrada) / precio_salida;\n}\n\nif (divisa_salida === 'USD') {\n  valor_salida_usd = cantidad_salida;\n} else if (divisa_salida === 'ARS') {\n  valor_salida_usd = cantidad_salida / precio_salida;\n} else {\n  valor_salida_usd = (cantidad_salida * precio_salida) / precio_salida;\n}\n\nconst tasa_cambio = cantidad_salida / cantidad_entrada;\n\nreturn {\n  json: {\n    usuario_telegram_id: data.usuario_telegram_id,\n    usuario_telegram_nombre: data.usuario_telegram_nombre,\n    divisa_entrada: divisa_entrada,\n    cantidad_entrada: cantidad_entrada,\n    precio_entrada: precio_entrada,\n    valor_entrada_usd: valor_entrada_usd,\n    divisa_salida: divisa_salida,\n    cantidad_salida: cantidad_salida,\n    precio_salida: precio_salida,\n    valor_salida_usd: valor_salida_usd,\n    tasa_cambio: tasa_cambio,\n    estado: 'completada',\n    notas: data.notas || '',\n    stockOrigen: data.stockOrigen,\n    stockDestino: data.stockDestino,\n    idStockOrigen: data.idStockOrigen,\n    idStockDestino: data.idStockDestino,\n    nuevoStockOrigen: data.nuevoStockOrigen,\n    nuevoStockDestino: data.nuevoStockDestino\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        912
+      ],
+      "id": "c1ac7731-59d5-4a3f-abc5-fabb0932950c",
+      "name": "Preparar Datos Operación"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const operacion = $('Registrar Operación1').item.json;\n\nconst divisa_entrada = operacion.divisa_entrada;\nconst cantidad_entrada = operacion.cantidad_entrada;\nconst precio_entrada = operacion.precio_entrada;\n\nconst divisa_salida = operacion.divisa_salida;\nconst cantidad_salida = operacion.cantidad_salida;\nconst precio_salida = operacion.precio_salida;\n\nlet ganancia_bruta_usd = 0;\nlet ganancia_bruta_ars = 0;\nlet margen_porcentaje = 0;\n\n// Cliente entrega ARS, recibe USD\nif (divisa_entrada === 'ARS' && divisa_salida === 'USD') {\n  const precio_compra_usd = 1000; // Precio base de referencia\n  ganancia_bruta_ars = (precio_salida - precio_compra_usd) * cantidad_salida;\n  ganancia_bruta_usd = ganancia_bruta_ars / precio_salida;\n  margen_porcentaje = ((precio_salida - precio_compra_usd) / precio_compra_usd) * 100;\n}\n// Cliente entrega USD, recibe ARS\nelse if (divisa_entrada === 'USD' && divisa_salida === 'ARS') {\n  const valor_real_ars = cantidad_entrada * precio_entrada;\n  ganancia_bruta_ars = cantidad_salida - valor_real_ars;\n  ganancia_bruta_usd = ganancia_bruta_ars / precio_entrada;\n  margen_porcentaje = (ganancia_bruta_ars / valor_real_ars) * 100;\n}\n// Otras divisas\nelse {\n  const valor_entrada_usd = operacion.valor_entrada_usd || 0;\n  const valor_salida_usd = operacion.valor_salida_usd || 0;\n  ganancia_bruta_usd = valor_entrada_usd - valor_salida_usd;\n  ganancia_bruta_ars = ganancia_bruta_usd * precio_salida;\n  margen_porcentaje = valor_salida_usd > 0 ? (ganancia_bruta_usd / valor_salida_usd) * 100 : 0;\n}\n\nreturn {\n  json: {\n    operacion_id: operacion.id,\n    numero_operacion: operacion.numero_operacion,\n    ganancia_bruta_usd: ganancia_bruta_usd,\n    ganancia_bruta_ars: ganancia_bruta_ars,\n    margen_porcentaje: margen_porcentaje,\n    tipo_ganancia: 'spread',\n    ...operacion\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        912
+      ],
+      "id": "9b0f207d-deb3-4dc9-96f7-0593997eab0d",
+      "name": "Calcular Ganancias\""
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "operaciones_cambio",
+        "filterType": "string",
+        "filterString": "=id=eq.{{ $json.operacion_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "ganancia_bruta_usd",
+              "fieldValue": "={{ $json.ganancia_bruta_usd }}"
+            },
+            {
+              "fieldId": "ganancia_bruta_ars",
+              "fieldValue": "={{ $json.ganancia_bruta_ars }}"
+            },
+            {
+              "fieldId": "margen_porcentaje",
+              "fieldValue": "={{ $json.margen_porcentaje }}"
+            },
+            {
+              "fieldId": "tipo_ganancia",
+              "fieldValue": "={{ $json.tipo_ganancia }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1008,
+        912
+      ],
+      "id": "384fde28-5916-47eb-bc55-20bee0b6069f",
+      "name": "Actualizar Ganancias",
+      "credentials": {
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $('Actualizar Ganancias').item.json;\n\nreturn {\n  json: {\n    operacion_id: data.operacion_id,\n    numero_operacion: data.numero_operacion,\n    divisa: data.divisa_entrada,\n    tipo: 'entrada',\n    cantidad: data.cantidad_entrada,\n    valor_usd: data.valor_entrada_usd,\n    precio_usd: data.precio_entrada,\n    saldo_anterior: data.stockOrigen?.stock_disponible || 0,\n    saldo_nuevo: data.nuevoStockOrigen || 0,\n    descripcion: `Entrada de ${data.cantidad_entrada} ${data.divisa_entrada} - Operación #${data.numero_operacion}`,\n    usuario_telegram_id: data.usuario_telegram_id\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        912
+      ],
+      "id": "5f843e60-c409-4533-8df5-3920b4c641b0",
+      "name": "Preparar Movimiento Entrada"
+    },
+    {
+      "parameters": {
+        "tableId": "movimientos_divisas",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "operacion_id",
+              "fieldValue": "={{ $json.operacion_id }}"
+            },
+            {
+              "fieldId": "numero_operacion",
+              "fieldValue": "={{ $json.numero_operacion }}"
+            },
+            {
+              "fieldId": "divisa",
+              "fieldValue": "={{ $json.divisa }}"
+            },
+            {
+              "fieldId": "tipo",
+              "fieldValue": "={{ $json.tipo }}"
+            },
+            {
+              "fieldId": "cantidad",
+              "fieldValue": "={{ $json.cantidad }}"
+            },
+            {
+              "fieldId": "valor_usd",
+              "fieldValue": "={{ $json.valor_usd }}"
+            },
+            {
+              "fieldId": "precio_usd",
+              "fieldValue": "={{ $json.precio_usd }}"
+            },
+            {
+              "fieldId": "saldo_anterior",
+              "fieldValue": "={{ $json.saldo_anterior }}"
+            },
+            {
+              "fieldId": "saldo_nuevo",
+              "fieldValue": "={{ $json.saldo_nuevo }}"
+            },
+            {
+              "fieldId": "descripcion",
+              "fieldValue": "={{ $json.descripcion }}"
+            },
+            {
+              "fieldId": "usuario_telegram_id",
+              "fieldValue": "={{ $json.usuario_telegram_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        912
+      ],
+      "id": "5d464e39-5508-4a44-ba9f-2bdca1087b70",
+      "name": "Insertar Movimiento Entrada",
+      "credentials": {
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $('Actualizar Ganancias').item.json;\n\nreturn {\n  json: {\n    operacion_id: data.operacion_id,\n    numero_operacion: data.numero_operacion,\n    divisa: data.divisa_salida,\n    tipo: 'salida',\n    cantidad: data.cantidad_salida,\n    valor_usd: data.valor_salida_usd,\n    precio_usd: data.precio_salida,\n    saldo_anterior: data.stockDestino?.stock_disponible || 0,\n    saldo_nuevo: data.nuevoStockDestino || 0,\n    descripcion: `Salida de ${data.cantidad_salida} ${data.divisa_salida} - Operación #${data.numero_operacion}`,\n    usuario_telegram_id: data.usuario_telegram_id\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        912
+      ],
+      "id": "b6b2ec33-0181-4286-acd3-d0d1e1279c86",
+      "name": "Preparar Movimiento Salida"
+    },
+    {
+      "parameters": {
+        "tableId": "movimientos_divisas",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "operacion_id",
+              "fieldValue": "={{ $json.operacion_id }}"
+            },
+            {
+              "fieldId": "numero_operacion",
+              "fieldValue": "={{ $json.numero_operacion }}"
+            },
+            {
+              "fieldId": "divisa",
+              "fieldValue": "={{ $json.divisa }}"
+            },
+            {
+              "fieldId": "tipo",
+              "fieldValue": "={{ $json.tipo }}"
+            },
+            {
+              "fieldId": "cantidad",
+              "fieldValue": "={{ $json.cantidad }}"
+            },
+            {
+              "fieldId": "valor_usd",
+              "fieldValue": "={{ $json.valor_usd }}"
+            },
+            {
+              "fieldId": "precio_usd",
+              "fieldValue": "={{ $json.precio_usd }}"
+            },
+            {
+              "fieldId": "saldo_anterior",
+              "fieldValue": "={{ $json.saldo_anterior }}"
+            },
+            {
+              "fieldId": "saldo_nuevo",
+              "fieldValue": "={{ $json.saldo_nuevo }}"
+            },
+            {
+              "fieldId": "descripcion",
+              "fieldValue": "={{ $json.descripcion }}"
+            },
+            {
+              "fieldId": "usuario_telegram_id",
+              "fieldValue": "={{ $json.usuario_telegram_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1904,
+        912
+      ],
+      "id": "6ba7306b-9a60-4e49-af39-de2a0ef07986",
+      "name": "Insertar Movimiento Salida",
+      "credentials": {
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// PARSE INPUT - VERSIÓN ROBUSTA Y SIMPLE\nconst input = $json;\n\nconsole.log('📥 INPUT RECIBIDO:', JSON.stringify(input, null, 2));\n\n// ========================================\n// 1. SI YA VIENE ESTRUCTURADO (desde herramienta)\n// ========================================\nif (input.divisa_origen && input.cantidad_origen && input.divisa_destino) {\n  console.log('✅ Input ya estructurado');\n  return { \n    json: {\n      ...input,\n      usuario_telegram_id: input.usuario_telegram_id || 'desconocido',\n      usuario_telegram_nombre: input.usuario_telegram_nombre || 'Usuario'\n    }\n  };\n}\n\n// ========================================\n// 2. EXTRAER TEXTO\n// ========================================\nlet texto = (input.query || input.text || input.message || '').toString().trim();\n\nif (!texto) {\n  throw new Error('❌ No se recibió ningún texto para parsear');\n}\n\nconsole.log('🔍 Texto a parsear:', texto);\n\n// Normalizar: lowercase y limpiar comas\ntexto = texto.toLowerCase().replace(/(\\d),(\\d)/g, '$1$2');\n\n// ========================================\n// 3. INTENTAR PARSEAR CON DIFERENTES PATRONES\n// ========================================\n\n// Patrón 1: \"vende 200 USD recibe 290000 ARS\"\nlet match = texto.match(/(?:vende|entrega|da)\\s+(\\d+\\.?\\d*)\\s+(usd|ars|eur|btc|eth|real)\\s+.*?(?:recibe|obtiene|por)\\s+(\\d+\\.?\\d*)\\s+(usd|ars|eur|btc|eth|real)/i);\n\nif (match) {\n  console.log('✅ Match con patrón 1: vende-recibe');\n  return {\n    json: {\n      cantidad_origen: parseFloat(match[1]),\n      divisa_origen: match[2].toUpperCase(),\n      cantidad_destino: parseFloat(match[3]),\n      divisa_destino: match[4].toUpperCase(),\n      usuario_telegram_id: input.usuario_telegram_id || 'desconocido',\n      usuario_telegram_nombre: input.usuario_telegram_nombre || 'Usuario',\n      notas: `Parseado: \"${texto}\"`\n    }\n  };\n}\n\n// Patrón 2: \"200 USD por 290000 ARS\"\nmatch = texto.match(/(\\d+\\.?\\d*)\\s+(usd|ars|eur|btc|eth|real)\\s+por\\s+(\\d+\\.?\\d*)\\s+(usd|ars|eur|btc|eth|real)/i);\n\nif (match) {\n  console.log('✅ Match con patrón 2: cantidad-por-cantidad');\n  return {\n    json: {\n      cantidad_origen: parseFloat(match[1]),\n      divisa_origen: match[2].toUpperCase(),\n      cantidad_destino: parseFloat(match[3]),\n      divisa_destino: match[4].toUpperCase(),\n      usuario_telegram_id: input.usuario_telegram_id || 'desconocido',\n      usuario_telegram_nombre: input.usuario_telegram_nombre || 'Usuario',\n      notas: `Parseado: \"${texto}\"`\n    }\n  };\n}\n\n// Patrón 3: \"compra 50 USD entregando 77500 ARS\"\nmatch = texto.match(/(?:compra|adquiere|recibe)\\s+(\\d+\\.?\\d*)\\s+(usd|ars|eur|btc|eth|real)\\s+entregando\\s+(\\d+\\.?\\d*)\\s+(usd|ars|eur|btc|eth|real)/i);\n\nif (match) {\n  console.log('✅ Match con patrón 3: compra-entregando');\n  return {\n    json: {\n      cantidad_origen: parseFloat(match[3]), // Lo que entrega\n      divisa_origen: match[4].toUpperCase(),\n      cantidad_destino: parseFloat(match[1]), // Lo que recibe\n      divisa_destino: match[2].toUpperCase(),\n      usuario_telegram_id: input.usuario_telegram_id || 'desconocido',\n      usuario_telegram_nombre: input.usuario_telegram_nombre || 'Usuario',\n      notas: `Parseado: \"${texto}\"`\n    }\n  };\n}\n\n// Patrón 4: \"200 USD a ARS\" (calcula automáticamente)\nmatch = texto.match(/(\\d+\\.?\\d*)\\s+(usd|ars|eur|btc|eth|real)\\s+(?:a|para|->)\\s+(usd|ars|eur|btc|eth|real)/i);\n\nif (match) {\n  console.log('✅ Match con patrón 4: cantidad-a-divisa');\n  return {\n    json: {\n      cantidad_origen: parseFloat(match[1]),\n      divisa_origen: match[2].toUpperCase(),\n      cantidad_destino: 0, // Se calcula después\n      divisa_destino: match[3].toUpperCase(),\n      usuario_telegram_id: input.usuario_telegram_id || 'desconocido',\n      usuario_telegram_nombre: input.usuario_telegram_nombre || 'Usuario',\n      notas: `Parseado: \"${texto}\"`\n    }\n  };\n}\n\n// ========================================\n// 4. NO SE PUDO PARSEAR\n// ========================================\nconsole.error('❌ Ningún patrón coincidió');\n\nthrow new Error(`❌ No pude entender el formato.\n\nTexto recibido: \"${texto}\"\n\nFormatos válidos:\n- \"Cliente vende 200 USD y recibe 290000 ARS\"\n- \"200 USD por 290000 ARS\"\n- \"Cliente compra 50 USD entregando 77500 ARS\"\n- \"200 USD a ARS\"\n\nDivisas: USD, ARS, EUR, BTC, ETH, REAL`);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1008,
+        816
+      ],
+      "id": "603996fe-0e78-4e12-a933-137605863f41",
+      "name": "Parse Input"
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Stocks1": {
+      "main": [
+        [
+          {
+            "node": "Validar Disponibilidad1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Disponibilidad1": {
+      "main": [
+        [
+          {
+            "node": "Debe Escalar?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debe Escalar?1": {
+      "main": [
+        [
+          {
+            "node": "Registrar Escalamiento1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Stock Origen1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Stock Origen1": {
+      "main": [
+        [
+          {
+            "node": "Update Stock Destino1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Stock Destino1": {
+      "main": [
+        [
+          {
+            "node": "Preparar Datos Operación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Operación1": {
+      "main": [
+        [
+          {
+            "node": "Calcular Ganancias\"",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Escalamiento1": {
+      "main": [
+        [
+          {
+            "node": "Notificar Slack1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Slack1": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Escalado1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Datos Operación": {
+      "main": [
+        [
+          {
+            "node": "Registrar Operación1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular Ganancias\"": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Ganancias",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Ganancias": {
+      "main": [
+        [
+          {
+            "node": "Preparar Movimiento Entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Movimiento Entrada": {
+      "main": [
+        [
+          {
+            "node": "Insertar Movimiento Entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insertar Movimiento Entrada": {
+      "main": [
+        [
+          {
+            "node": "Preparar Movimiento Salida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Movimiento Salida": {
+      "main": [
+        [
+          {
+            "node": "Insertar Movimiento Salida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insertar Movimiento Salida": {
+      "main": [
+        [
+          {
+            "node": "Respuesta OK1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Input": {
+      "main": [
+        [
+          {
+            "node": "Get All Stocks1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Execute Workflow Trigger": [
+      {
+        "query": "USD"
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "52d2515e8ec57cc41db077498298356feba70d5c6d22e5ab0bc92cc9467fc786"
+  }
+}
