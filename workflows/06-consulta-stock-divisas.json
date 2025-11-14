@@ -1,0 +1,78 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "57163f59-9062-4f1c-8d5a-5ed2b84c0b28",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        352,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "divisas_stock",
+        "limit": 100
+      },
+      "id": "77d6c634-28c2-4b87-b661-635a443bb6d9",
+      "name": "Supabase Get Stocks",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        576,
+        176
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ====================================\n// FORMATEAR RESPUESTA DE STOCK\n// ====================================\n\nconst items = $input.all();\nconst divisaConsultada = $('Execute Workflow Trigger').first()?.json?.divisa || null;\n\nif (!items || items.length === 0) {\n  return {\n    json: {\n      success: false,\n      message: divisaConsultada \n        ? `❌ No se encontró información de stock para: ${divisaConsultada}`\n        : '❌ No hay divisas en stock',\n      divisas: []\n    }\n  };\n}\n\n// Formatear datos\nconst divisas = items.map(item => {\n  const data = item.json;\n  return {\n    divisa: data.divisa,\n    precio_compra: parseFloat(data.precio_compra || 0),\n    precio_venta: parseFloat(data.precio_venta || 0),\n    stock_disponible: parseFloat(data.stock_disponible || 0),\n    ultima_actualizacion: data.updated_at\n  };\n});\n\n// Crear respuesta formateada para el chat\nlet respuestaTexto = '';\n\nif (divisaConsultada && divisas.length === 1) {\n  // Consulta específica\n  const divisa = divisas[0];\n  respuestaTexto = `💰 **STOCK DE ${divisa.divisa.toUpperCase()}**\\n━━━━━━━━━━━━━━━━━━\\n`;\n  respuestaTexto += `📊 **Stock Disponible:** ${divisa.stock_disponible.toLocaleString('es-AR')} unidades\\n`;\n  respuestaTexto += `💵 **Precio Compra:** $${divisa.precio_compra.toLocaleString('es-AR', {minimumFractionDigits: 2})}\\n`;\n  respuestaTexto += `💸 **Precio Venta:** $${divisa.precio_venta.toLocaleString('es-AR', {minimumFractionDigits: 2})}\\n`;\n  \n  const spread = divisa.precio_venta - divisa.precio_compra;\n  const spreadPct = divisa.precio_compra > 0 ? ((spread / divisa.precio_compra) * 100).toFixed(2) : 0;\n  respuestaTexto += `📈 **Spread:** $${spread.toFixed(2)} (${spreadPct}%)\\n`;\n  \n  // Alertas de stock\n  if (divisa.stock_disponible < 100) {\n    respuestaTexto += `\\n⚠️ **ALERTA:** Stock bajo (menos de 100 unidades)`;\n  } else if (divisa.stock_disponible > 10000) {\n    respuestaTexto += `\\n✅ Stock abundante`;\n  }\n  \n} else {\n  // Lista completa\n  respuestaTexto = `💰 **STOCK DE DIVISAS DISPONIBLES**\\n━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n`;\n  \n  divisas.forEach(divisa => {\n    const stockIcon = divisa.stock_disponible < 100 ? '🔴' : \n                     divisa.stock_disponible < 1000 ? '🟡' : '🟢';\n    \n    respuestaTexto += `${stockIcon} **${divisa.divisa.toUpperCase()}**\\n`;\n    respuestaTexto += `   Stock: ${divisa.stock_disponible.toLocaleString('es-AR')} | `;\n    respuestaTexto += `Compra: $${divisa.precio_compra.toLocaleString('es-AR')} | `;\n    respuestaTexto += `Venta: $${divisa.precio_venta.toLocaleString('es-AR')}\\n\\n`;\n  });\n  \n  respuestaTexto += `\\n🔴 Stock crítico | 🟡 Stock medio | 🟢 Stock bueno`;\n}\n\nreturn {\n  json: {\n    success: true,\n    message: respuestaTexto,\n    divisas: divisas,\n    total_divisas: divisas.length,\n    consulta_especifica: !!divisaConsultada\n  }\n};"
+      },
+      "id": "c530a4d5-4b5f-4d3b-a29f-7e1b00242f84",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        176
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Supabase Get Stocks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Get Stocks": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "52d2515e8ec57cc41db077498298356feba70d5c6d22e5ab0bc92cc9467fc786"
+  }
+}
