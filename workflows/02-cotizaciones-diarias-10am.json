@@ -1,0 +1,272 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 10 * * *"
+            }
+          ]
+        }
+      },
+      "id": "1121c549-0a86-4dbd-b7ba-af37d2690a80",
+      "name": "Schedule Trigger - 10 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "suscripciones_cotizacion"
+      },
+      "id": "fa7053a1-0e84-4e29-82f5-bf16df6617eb",
+      "name": "Obtener Contactos Activos",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        224,
+        80
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "divisas_stock"
+      },
+      "id": "89026b8e-065e-4a1a-9b1e-96139150cc52",
+      "name": "Consultar Cotizaciones",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        448,
+        80
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener cotizaciones\nconst cotizaciones = $('Consultar Cotizaciones').all();\nconst contactos = $('Obtener Contactos Activos').all();\n\n// Fecha actual argentina\nconst ahora = new Date();\nconst opciones = {\n  weekday: 'long',\n  day: 'numeric',\n  month: 'long',\n  year: 'numeric',\n  timeZone: 'America/Argentina/Buenos_Aires'\n};\nconst fecha = ahora.toLocaleDateString('es-AR', opciones);\nconst hora = ahora.toLocaleTimeString('es-AR', {\n  hour: '2-digit',\n  minute: '2-digit',\n  timeZone: 'America/Argentina/Buenos_Aires'\n});\n\n// Emojis que SÍ funcionan en WhatsApp API\nconst emojiMap = {\n  'USD': '💵',\n  'EUR': '💶', \n  'BTC': '🟠',  // Cambié el símbolo Bitcoin por círculo naranja\n  'USDT': '🟢', // Círculo verde\n  'ETH': '🔷'   // Diamante azul\n};\n\n// Construir mensaje\nlet mensaje = `📊 *COTIZACIONES DEL DIA*\\n`;\nmensaje += `━━━━━━━━━━━━━━━━━━\\n`;\nmensaje += `📅 ${fecha.charAt(0).toUpperCase() + fecha.slice(1)}\\n`;\nmensaje += `🕐 ${hora} hs\\n\\n`;\n\n// Agregar cada divisa\nfor (const item of cotizaciones) {\n  const cot = item.json;\n  const emoji = emojiMap[cot.divisa] || '💰';\n  \n  mensaje += `${emoji} *${cot.divisa}*\\n`;\n  mensaje += `   📈 Venta: $${Number(cot.precio_venta).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\\n`;\n  mensaje += `   📉 Compra: $${Number(cot.precio_compra).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\\n\\n`;\n}\n\nmensaje += `━━━━━━━━━━━━━━━━━━\\n`;\nmensaje += `💬 ¿Querés hacer alguna operación?\\n`;\nmensaje += `¡Escribime y te ayudo!`;\n\n// Crear un item por cada contacto con el mensaje\nconst resultado = contactos.map(contacto => ({\n  json: {\n    chat_id: contacto.json.chat_id,\n    nombre: contacto.json.nombre,\n    mensaje: mensaje,\n    fecha_envio: ahora.toISOString()\n  }\n}));\n\nreturn resultado;"
+      },
+      "id": "019e6e83-0cdb-4861-ba41-f157fab1a0a7",
+      "name": "Formatear Mensaje",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "6997f763-3a7c-40cd-99de-87b063b2efb0",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        896,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "id": "b6372cf6-8653-45af-bb50-54396dcddc24",
+      "name": "Wait 3 segundos",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1344,
+        80
+      ],
+      "webhookId": "wait-cotizaciones"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://3.15.229.241:8080/message/sendText/Hemisferia",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "hemisferio-api-key-123"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $json.chat_id }}"
+            },
+            {
+              "name": "textMessage.text",
+              "value": "={{ $json.mensaje }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "04bd0892-bff5-484e-a6f1-b37052a7dbb3",
+      "name": "Enviar respuesta WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE suscripciones_cotizacion\nSET ultima_cotizacion = NOW()\nWHERE chat_id = '{{ $json.chat_id }}'\nRETURNING *;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1568,
+        80
+      ],
+      "id": "e0051f78-bf03-450b-93e5-b01cf2f0ae70",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "BeqYldvITzTPaVDD",
+          "name": "Postgres-miguel-pepsi"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - 10 AM": {
+      "main": [
+        [
+          {
+            "node": "Obtener Contactos Activos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Contactos Activos": {
+      "main": [
+        [
+          {
+            "node": "Consultar Cotizaciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Cotizaciones": {
+      "main": [
+        [
+          {
+            "node": "Formatear Mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Mensaje": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Enviar respuesta WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 3 segundos": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar respuesta WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Wait 3 segundos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Schedule Trigger - 10 AM": [
+      {
+        "timestamp": "2025-10-26T21:50:00.006-03:00",
+        "Readable date": "October 26th 2025, 9:50:00 pm",
+        "Readable time": "9:50:00 pm",
+        "Day of week": "Sunday",
+        "Year": "2025",
+        "Month": "October",
+        "Day of month": "26",
+        "Hour": "21",
+        "Minute": "50",
+        "Second": "00",
+        "Timezone": "America/Argentina/Buenos_Aires (UTC-03:00)"
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "52d2515e8ec57cc41db077498298356feba70d5c6d22e5ab0bc92cc9467fc786"
+  }
+}
