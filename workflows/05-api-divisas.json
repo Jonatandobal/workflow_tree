@@ -3,7 +3,10 @@
     {
       "parameters": {
         "path": "divisas",
-        "options": {}
+        "options": {
+          "noResponseBody": false
+        },
+        "responseMode": "responseNode"
       },
       "id": "webhook1",
       "name": "Webhook",
@@ -24,7 +27,10 @@
           "value": "public"
         },
         "table": "divisas_stock",
-        "options": {}
+        "options": {
+          "queryBatching": "pagination",
+          "limit": 100
+        }
       },
       "id": "postgres1",
       "name": "PostgreSQL",
@@ -39,7 +45,8 @@
           "id": "BeqYldvITzTPaVDD",
           "name": "Postgres-miguel-pepsi"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {

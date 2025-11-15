@@ -77,10 +77,6 @@
             {
               "fieldId": "stock_disponible",
               "fieldValue": "={{ $json.nuevoStockOrigen }}"
-            },
-            {
-              "fieldId": "stock_disponible",
-              "fieldValue": "={{ $json.nuevoStockDestino }}"
             }
           ]
         }
@@ -224,7 +220,48 @@
     },
     {
       "parameters": {
-        "operation": "insert"
+        "operation": "insert",
+        "tableId": "operaciones_escaladas",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "usuario_telegram_id",
+              "fieldValue": "={{ $json.usuario_telegram_id }}"
+            },
+            {
+              "fieldId": "usuario_telegram_nombre",
+              "fieldValue": "={{ $json.usuario_telegram_nombre }}"
+            },
+            {
+              "fieldId": "divisa_origen",
+              "fieldValue": "={{ $json.divisa_origen }}"
+            },
+            {
+              "fieldId": "cantidad_origen",
+              "fieldValue": "={{ $json.cantidad_origen }}"
+            },
+            {
+              "fieldId": "divisa_destino",
+              "fieldValue": "={{ $json.divisa_destino }}"
+            },
+            {
+              "fieldId": "cantidad_destino",
+              "fieldValue": "={{ $json.cantidad_destino }}"
+            },
+            {
+              "fieldId": "tipo_escalamiento",
+              "fieldValue": "={{ $json.tipo_escalamiento }}"
+            },
+            {
+              "fieldId": "motivo",
+              "fieldValue": "={{ $json.message }}"
+            },
+            {
+              "fieldId": "estado",
+              "fieldValue": "pendiente"
+            }
+          ]
+        }
       },
       "id": "5a4cd68a-d5b0-4f88-b6bb-69e0c0674026",
       "name": "Registrar Escalamiento1",
@@ -715,13 +752,7 @@
       ]
     }
   },
-  "pinData": {
-    "Execute Workflow Trigger": [
-      {
-        "query": "USD"
-      }
-    ]
-  },
+  "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "52d2515e8ec57cc41db077498298356feba70d5c6d22e5ab0bc92cc9467fc786"

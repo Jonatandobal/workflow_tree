@@ -767,12 +767,30 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO suscripciones_cotizacion (chat_id, nombre, activo, fecha_suscripcion)\nVALUES (\n  '{{ $('Normalización').item.json.message.chatId }}',\n  '{{ $('Normalización').item.json.message.username }}',\n  true,\n  NOW()\n)\nON CONFLICT (chat_id) \nDO UPDATE SET \n  activo = true,\n  fecha_suscripcion = NOW(),\n  nombre = EXCLUDED.nombre\nRETURNING *;",
-        "options": {}
+        "operation": "upsert",
+        "tableId": "suscripciones_cotizacion",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "chat_id",
+              "fieldValue": "={{ $('Normalización').item.json.message.chatId }}"
+            },
+            {
+              "fieldId": "nombre",
+              "fieldValue": "={{ $('Normalización').item.json.message.username }}"
+            },
+            {
+              "fieldId": "activo",
+              "fieldValue": true
+            }
+          ]
+        },
+        "options": {
+          "onConflict": "chat_id"
+        }
       },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
       "position": [
         -1264,
         3536
@@ -780,20 +798,38 @@
       "id": "60c79f3f-4766-499d-88ab-bd1696ebddf0",
       "name": "Suscribir contacto",
       "credentials": {
-        "postgres": {
-          "id": "BeqYldvITzTPaVDD",
-          "name": "Postgres-miguel-pepsi"
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE suscripciones_cotizacion\nSET activo = false\nWHERE chat_id = '{{ $('Normalización').item.json.message.chatId }}'\nRETURNING *;\n```\n\n---\n\n## ✅ Resumen:\n```\nNodo: Postgres\nAction: Execute a SQL query\nCredentials: [Configurar con datos de Supabase]\nQuery: [Pegar el SQL correspondiente]",
-        "options": {}
+        "operation": "update",
+        "tableId": "suscripciones_cotizacion",
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chat_id",
+              "condition": "equals",
+              "keyValue": "={{ $('Normalización').item.json.message.chatId }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "activo",
+              "fieldValue": false
+            }
+          ]
+        }
       },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
       "position": [
         -1264,
         3728
@@ -801,11 +837,12 @@
       "id": "554992c2-116d-4167-89a6-c79e064ef62c",
       "name": "Desuscribir contacto",
       "credentials": {
-        "postgres": {
-          "id": "BeqYldvITzTPaVDD",
-          "name": "Postgres-miguel-pepsi"
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
         }
-      }
+      },
+      "continueOnFail": true
     }
   ],
   "connections": {
@@ -1118,67 +1155,7 @@
       ]
     }
   },
-  "pinData": {
-    "Webhook": [
-      {
-        "headers": {
-          "host": "primary-production-6661.up.railway.app",
-          "user-agent": "axios/1.6.8",
-          "content-length": "921",
-          "accept": "application/json, text/plain, */*",
-          "accept-encoding": "gzip, compress, deflate, br",
-          "content-type": "application/json",
-          "x-forwarded-for": "3.15.229.241",
-          "x-forwarded-host": "primary-production-6661.up.railway.app",
-          "x-forwarded-proto": "https",
-          "x-railway-edge": "railway/us-east4-eqdc4a",
-          "x-railway-request-id": "zMLAs5j9RsqAwXwywoOzXw",
-          "x-real-ip": "3.15.229.241",
-          "x-request-start": "1763147936321"
-        },
-        "params": {},
-        "query": {},
-        "body": {
-          "event": "messages.upsert",
-          "instance": "Hemisferia",
-          "data": {
-            "key": {
-              "remoteJid": "5491127482322@s.whatsapp.net",
-              "fromMe": false,
-              "id": "3EB037B645C36FB17EBCCB"
-            },
-            "pushName": "Jonatan",
-            "message": {
-              "conversation": "quiero vender comprar 2 usd",
-              "messageContextInfo": {
-                "deviceListMetadata": {
-                  "senderKeyHash": "wQP80r/1LprbAw==",
-                  "senderTimestamp": "1761932951",
-                  "senderAccountType": "E2EE",
-                  "receiverAccountType": "E2EE",
-                  "recipientKeyHash": "CTOJZ/wX1lFM/w==",
-                  "recipientTimestamp": "1762988135"
-                },
-                "deviceListMetadataVersion": 2,
-                "messageSecret": "rNHb9lcX9Ho+GUCJ77r5Y861SYyF+u1FGo4SNKTRVk8="
-              }
-            },
-            "messageType": "conversation",
-            "messageTimestamp": 1763147936,
-            "owner": "Hemisferia",
-            "source": "web"
-          },
-          "destination": "https://primary-production-6661.up.railway.app/webhook/b1c934c3-12d8-4c53-83d9-a14d239fa315",
-          "date_time": "2025-11-14T16:18:56.232Z",
-          "sender": "5491121713962@s.whatsapp.net",
-          "server_url": "http://3.15.229.241:8080",
-          "apikey": "k6belq451scepgzvgjqw"
-        },
-        "webhookUrl": "https://primary-production-6661.up.railway.app/webhook/b1c934c3-12d8-4c53-83d9-a14d239fa315",
-        "executionMode": "production"
-      }
-    ]
-  },
+  "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "52d2515e8ec57cc41db077498298356feba70d5c6d22e5ab0bc92cc9467fc786"

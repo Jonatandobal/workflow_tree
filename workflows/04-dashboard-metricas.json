@@ -3,7 +3,10 @@
     {
       "parameters": {
         "path": "dashboard",
-        "options": {}
+        "options": {
+          "noResponseBody": false
+        },
+        "responseMode": "responseNode"
       },
       "id": "webhook2",
       "name": "Webhook",
@@ -34,7 +37,8 @@
           "id": "BeqYldvITzTPaVDD",
           "name": "Postgres-miguel-pepsi"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {

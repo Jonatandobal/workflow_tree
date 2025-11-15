@@ -12,7 +12,7 @@
         }
       },
       "id": "2ad2bf1b-2308-4c65-b560-7259b493e2cc",
-      "name": "Schedule - Cada 5 min",
+      "name": "Schedule - Diario 3:00 PM",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -168,7 +168,8 @@
       "position": [
         1600,
         112
-      ]
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {

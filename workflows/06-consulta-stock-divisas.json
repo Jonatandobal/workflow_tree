@@ -15,7 +15,19 @@
       "parameters": {
         "operation": "getAll",
         "tableId": "divisas_stock",
-        "limit": 100
+        "returnAll": false,
+        "limit": 100,
+        "filterType": "manual",
+        "matchType": "anyFilter",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "divisa",
+              "condition": "equals",
+              "keyValue": "={{ $('Execute Workflow Trigger').item.json.divisa || '' }}"
+            }
+          ]
+        }
       },
       "id": "77d6c634-28c2-4b87-b661-635a443bb6d9",
       "name": "Supabase Get Stocks",
@@ -30,7 +42,8 @@
           "id": "DjH14ekzQVDFDnz7",
           "name": "Supabase Miguel_pepsi"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {

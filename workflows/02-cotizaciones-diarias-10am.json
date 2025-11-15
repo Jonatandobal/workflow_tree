@@ -139,7 +139,8 @@
       "position": [
         1120,
         0
-      ]
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -227,7 +228,13 @@
             "node": "Loop Over Items",
             "type": "main",
             "index": 0
-          },
+          }
+        ]
+      ]
+    },
+    "Enviar respuesta WhatsApp": {
+      "main": [
+        [
           {
             "node": "Execute a SQL query",
             "type": "main",
@@ -236,7 +243,7 @@
         ]
       ]
     },
-    "Enviar respuesta WhatsApp": {
+    "Execute a SQL query": {
       "main": [
         [
           {
@@ -248,23 +255,7 @@
       ]
     }
   },
-  "pinData": {
-    "Schedule Trigger - 10 AM": [
-      {
-        "timestamp": "2025-10-26T21:50:00.006-03:00",
-        "Readable date": "October 26th 2025, 9:50:00 pm",
-        "Readable time": "9:50:00 pm",
-        "Day of week": "Sunday",
-        "Year": "2025",
-        "Month": "October",
-        "Day of month": "26",
-        "Hour": "21",
-        "Minute": "50",
-        "Second": "00",
-        "Timezone": "America/Argentina/Buenos_Aires (UTC-03:00)"
-      }
-    ]
-  },
+  "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "52d2515e8ec57cc41db077498298356feba70d5c6d22e5ab0bc92cc9467fc786"
