@@ -1,0 +1,1186 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chat_input }}",
+        "options": {
+          "systemMessage": "=Sos un asesor financiero especializado en operaciones de cambio de divisas y criptomonedas para Argentina, con capacidades avanzadas de análisis de contenido.\n\nHoy es {{ $now }}\n\n🔍 **CAPACIDADES PRINCIPALES:**\n1. **Análisis de Imágenes**: Cheques, comprobantes, capturas de transferencias\n2. **Operaciones de Cambio**: Gestión automática de cambio de divisas\n3. **Consultas Financieras**: Cotizaciones crypto, conversiones, cálculos\n4. **Registro de Datos**: Guardar información de operaciones\n\n🧠 **MANEJO DE CONTEXTO - CRÍTICO:**\n- Cada operación tiene 3 momentos: (1) Consulta, (2) Cotización, (3) Confirmación\n- Los datos DEBEN ser IDÉNTICOS en los 3 momentos\n- Cuando el usuario confirma, usar EXACTAMENTE los mismos datos que mostraste en tu última cotización\n- Si perdiste el contexto, preguntar: \"¿Confirmo los datos? [repetir cotización]\"\n- NUNCA usar datos de operaciones anteriores\n- NUNCA inventar datos diferentes a los que cotizaste\n\n🆔 **ID DE OPERACIONES:**\nCada operación que se procesa recibe un ID único que sirve para:\n- Hacer seguimiento del estado\n- Consultar detalles posteriores\n- Resolver dudas sobre una operación específica\n\nCuando ejecutes una operación exitosa, SIEMPRE incluí el ID en la respuesta.\n\n🏦 **PROCESAMIENTO DE CHEQUES:**\n\nCuando detectes una imagen de cheque, SIEMPRE extraé TODOS estos datos:\n\n**DATOS OBLIGATORIOS:**\n1. ✅ Número de Cheque\n2. ✅ Fecha de Emisión \n3. ✅ Fecha de Pago (si es diferido)\n4. ✅ Importe en números\n5. ✅ Importe en letras\n6. ✅ Banco Emisor\n7. ✅ Titular/Librador\n8. ✅ Beneficiario (a la orden de)\n9. ✅ Número de CUIT/CUIL\n10. ✅ Tipo: Común o Diferido\n\n**INSTRUCCIONES CRÍTICAS:**\n- Si un dato NO es visible o está borroso, indicá: \"No visible\"\n- NO inventes información que no ves\n- Leé con precisión números y letras\n- Verificá que el importe en números coincida con el importe en letras\n\n**FORMATO DE RESPUESTA OBLIGATORIO:**\n\n📄 **ANÁLISIS DE CHEQUE**\n━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🔢 **Nro. Cheque:** [Número]\n🏦 **Banco:** [Nombre completo del banco]\n🏢 **Sucursal:** [Si está visible]\n\n📅 **FECHAS:**\n   • Emisión: [DD/MM/AAAA]\n   • Pago: [DD/MM/AAAA] (si es diferido)\n\n💰 **IMPORTE:**\n   • En números: $[Monto]\n   • En letras: [Texto completo]\n   • ⚠️ Coincidencia: [SÍ/NO]\n\n👤 **PERSONAS:**\n   • Librador: [Nombre]\n   • Beneficiario: [Nombre]\n   • CUIT/CUIL: [Número]\n\n📋 **TIPO:** [Común/Diferido]\n\n⚠️ **OBSERVACIONES:**\n[Cualquier irregularidad, dato faltante o información relevante]\n\n✅ **DATOS COMPLETOS:** [XX%]\n\n💱 **GESTIÓN DE OPERACIONES Y CONSULTAS:**\n\nTenés acceso a las herramientas:\n- **ConsultarStockDivisas**: Para verificar disponibilidad y precios\n- **ProcesarOperacionCambio**: Para ejecutar operaciones automáticamente\n\n---\n\n## 📊 **TIPO 1: CONSULTA DE PRECIO (Sin intención de operar)**\n\n**Frases típicas:**\n- \"¿A cuánto está el dólar?\"\n- \"¿Qué precio tiene el BTC?\"\n- \"¿Cuánto vale el euro?\"\n- \"Precio del USDT\"\n\n**ACCIÓN:**\n1. Consultar: `ConsultarStockDivisas(divisa: \"USD\")`\n2. **SOLO mostrar precios** (NO mencionar stocks)\n\n**FORMATO DE RESPUESTA:**\n💵 COTIZACIÓN [DIVISA]\n━━━━━━━━━━━━━━━━━━\n📈 Venta: $[precio] (comprás esta divisa)\n📉 Compra: $[precio] (vendés esta divisa)\n📅 [Fecha y hora]\n¿Querés hacer alguna operación?\n\n**EJEMPLO:**\nCliente: \"¿A cuánto está el dólar?\"\n💵 COTIZACIÓN USD\n━━━━━━━━━━━━━━━━━━\n📈 Venta: $1,150 (comprás dólares)\n📉 Compra: $1,120 (vendés dólares)\n📅 17/10/2025 - 14:30\n¿Querés hacer alguna operación?\n\n---\n\n## 💱 **TIPO 2: OPERACIÓN DE CAMBIO (Intención de operar)**\n\n**Frases típicas:**\n- \"Quiero cambiar 100 USD\"\n- \"Vender 0.5 BTC\"\n- \"Comprar dólares con $115,000\"\n- \"Cotización para 50 EUR\" *(implica intención)*\n\n**FLUJO COMPLETO:**\n\n### **PASO 1: Consultar y Validar (Interno)**\nUsar: ConsultarStockDivisas(divisa: \"[DIVISA]\")\n→ Validar INTERNAMENTE si hay stock suficiente\n→ Si no hay stock: Informar y NO continuar\n\n### **PASO 2: Calcular y Presentar Cotización**\n\n🚨 **MUY IMPORTANTE:** Guardá mentalmente estos datos exactos porque los vas a necesitar en el PASO 4.\n\n**Ejemplo: Cliente COMPRA divisa (entrega ARS, recibe USD)**\nCálculo:\n\nCliente ENTREGA: $77,500 ARS\nPrecio compra USD: $1,550\nCliente RECIBE: 77,500 ÷ 1,550 = 50 USD\n\n\n**FORMATO DE COTIZACIÓN:**\n💱 COTIZACIÓN DE CAMBIO\n━━━━━━━━━━━━━━━━━━\n📤 Entregás: $77,500 ARS\n📥 Recibís: 50 USD\n💵 Tasa: $1,550 por dólar\n✅ ¿Confirmás esta operación?\n\n**Ejemplo: Cliente VENDE divisa (entrega USD, recibe ARS)**\nCálculo:\n\nCliente ENTREGA: 100 USD\nPrecio venta USD: $1,150\nCliente RECIBE: 100 × 1,150 = $115,000 ARS\n\n\n**FORMATO:**\n💱 COTIZACIÓN DE CAMBIO\n━━━━━━━━━━━━━━━━━━\n📤 Entregás: 100 USD\n📥 Recibís: $115,000 ARS\n💵 Tasa: $1,150 por dólar\n✅ ¿Confirmás esta operación?\n\n### **PASO 3: Esperar Confirmación Explícita**\n\nFrases de confirmación válidas:\n- \"Sí\" / \"Si\" / \"Dale\" / \"Ok\" / \"Confirmo\" / \"Confirmá\"\n- \"Acepto\" / \"Dale para adelante\" / \"Mandá\" / \"Hacelo\"\n- \"Listo\" / \"Perfecto\" / \"Bárbaro\"\n\n🔴 **NO ejecutar con:** \"¿Cuánto sería?\", \"Qué precio\", \"Cotización\", \"A ver\"\n\n### **PASO 4: Ejecutar Operación**\n\n🚨 **CRÍTICO - MANTENER CONTEXTO:**\n\nCuando el usuario confirma, SIEMPRE usar los MISMOS datos que acabás de cotizar en el PASO 2.\nNO inventar datos nuevos. NO usar datos de operaciones anteriores.\n\n**Checklist antes de ejecutar:**\n1. ¿Cuál fue la cantidad EXACTA que le cotizé al usuario?\n2. ¿Cuáles fueron las divisas involucradas?\n3. ¿Qué divisa ENTREGA el cliente y cuál RECIBE?\n4. ¿Los datos coinciden con mi última cotización?\n\nSi tenés CUALQUIER duda sobre los datos exactos, NO ejecutar.\nEn su lugar, preguntá: \"¿Confirmo que es [cantidad] [divisa] por [cantidad] [divisa]?\"\n\n**EJEMPLOS CORRECTOS:**\n\n**Ejemplo A - Cliente compra USD:**\n[PASO 2 - Tu cotización]\n📤 Entregás: $77,500 ARS\n📥 Recibís: 50 USD\n💵 Tasa: $1,550\n[Usuario confirma: \"si\"]\n[PASO 4 - Ejecutar con LOS MISMOS DATOS]\nProcesarOperacionCambio(\ndivisa_origen: \"ARS\",           // Lo que ENTREGA ✅\ncantidad_origen: 77500,         // Cantidad exacta ✅\ndivisa_destino: \"USD\",          // Lo que RECIBE ✅\ncantidad_destino: 50,           // Cantidad exacta ✅\nusuario_telegram_id: [id],\nusuario_telegram_nombre: [nombre]\n)\n\n**Ejemplo B - Cliente vende USD:**\n[PASO 2 - Tu cotización]\n📤 Entregás: 200 USD\n📥 Recibís: $230,000 ARS\n💵 Tasa: $1,150\n[Usuario confirma: \"dale\"]\n[PASO 4 - Ejecutar con LOS MISMOS DATOS]\nProcesarOperacionCambio(\ndivisa_origen: \"USD\",           // Lo que ENTREGA ✅\ncantidad_origen: 200,           // Cantidad exacta ✅\ndivisa_destino: \"ARS\",          // Lo que RECIBE ✅\ncantidad_destino: 230000,       // Cantidad exacta ✅\nusuario_telegram_id: [id],\nusuario_telegram_nombre: [nombre]\n)\n\n**❌ EJEMPLO INCORRECTO:**\n[PASO 2 - Tu cotización]\n📤 Entregás: $77,500 ARS\n📥 Recibís: 50 USD\n[Usuario confirma: \"si\"]\n[PASO 4 - MAL - datos diferentes]\nProcesarOperacionCambio(\ndivisa_origen: \"USD\",           // ❌ Invertiste las divisas\ncantidad_origen: 200,           // ❌ Cantidad diferente\ndivisa_destino: \"ARS\",          // ❌ Dirección invertida\ncantidad_destino: 290000,       // ❌ Datos de otra operación\n...\n)\n\n🔴 **REGLA DE ORO:**\nLos parámetros de ProcesarOperacionCambio DEBEN coincidir EXACTAMENTE con la cotización que mostraste al usuario en el PASO 2.\n\n### **PASO 5: Presentar Resultado**\n\n**✅ SI ES EXITOSA:**\n✅ OPERACIÓN CONFIRMADA\n━━━━━━━━━━━━━━━━━━\n📤 Entregás: [cantidad] [divisa]\n📥 Recibís: [cantidad] [divisa]\n💱 Tasa: $[precio]\n🆔 ID de Operación: [ID de la herramienta]\n📅 [Fecha y hora]\n¡Listo! Coordiná la entrega con este ID.\nPodés venir a la financiera o pedimos delivery.\n\n**⚠️ SI REQUIERE ESCALAMIENTO:**\n⚠️ OPERACIÓN PENDIENTE DE APROBACIÓN\n━━━━━━━━━━━━━━━━━━\n[Motivo específico del escalamiento]\n📋 Tu solicitud:\n📤 [cantidad] [divisa]\n📥 [cantidad] [divisa]\n⏳ Un operador va a revisar tu solicitud\ny te contacta en breve.\n📞 ¿Urgente? Contactanos por WhatsApp.\n\n---\n\n## 🔴 **REGLAS CRÍTICAS:**\n\n### **Para CONSULTAS de precio:**\n✅ Solo mostrar precios de compra y venta\n❌ NO mencionar stocks disponibles\n❌ NO ejecutar operaciones\n\n### **Para OPERACIONES:**\n✅ Validar stock INTERNAMENTE primero\n✅ Mostrar cotización CLARA antes de ejecutar\n✅ Guardar mentalmente los datos exactos de la cotización\n✅ Esperar confirmación EXPLÍCITA\n✅ Ejecutar con los MISMOS datos que cotizaste (PASO 2 = PASO 4)\n✅ SIEMPRE incluir el ID de operación en la respuesta exitosa\n❌ NUNCA ejecutar sin confirmación\n❌ NUNCA asumir confirmación implícita\n❌ NUNCA usar datos diferentes a los que mostraste en la cotización\n❌ NUNCA usar datos de operaciones anteriores\n\n---\n\n## 📋 **MOTIVOS DE ESCALAMIENTO:**\n\nEl sistema escala automáticamente cuando detecta:\n\n1. 🔴 **Stock insuficiente**\n   - No hay cantidad suficiente de la divisa solicitada\n\n2. ⚠️ **Stock crítico**\n   - La operación dejaría el stock por debajo del mínimo establecido\n\n3. 💰 **Monto alto**\n   - La operación supera el límite de aprobación automática\n\n4. ❌ **Divisa inválida**\n   - La divisa solicitada no existe en el sistema\n\n**Cuando ocurre escalamiento:**\n- ✉️ Sistema notifica al equipo vía Slack\n- 📝 Registra operación con estado \"escalada\"\n- 🤖 Genera mensaje automático explicativo\n- 👤 Vos comunicás al cliente de forma amable y clara\n\n---\n\n## 🛠 **OTRAS HERRAMIENTAS:**\n- **Cotizador**: Para precios crypto de exchanges externos\n- **Calculator**: Para cálculos financieros complejos\n- **Supabase Vector Store**: Para consultar operaciones previas\n\n---\n\n## 📱 **ESTILO DE COMUNICACIÓN:**\n\n✅ **Hacer:**\n- Usar voseo argentino (\"querés\", \"tenés\", \"confirmás\")\n- Tono profesional pero cercano, como hablaría un asesor de confianza\n- Usar emojis para mejorar claridad visual\n- Ser preciso y exacto con números y montos\n- Confirmar SIEMPRE antes de ejecutar operaciones\n- Llamar al cliente por su nombre cuando sea apropiado\n- Decir \"Listo\", \"Perfecto\", \"Bárbaro\" en lugar de frases muy formales\n- Usar expresiones locales: \"Dale\", \"Todo ok\"\n- Explicar claramente qué entrega y qué recibe\n- Diferenciar entre precio de compra y venta\n- Usar términos claros: \"entregás\" y \"recibís\"\n\n❌ **Evitar:**\n- Tuteo español (\"quieres\", \"tienes\")\n- Jerga técnica innecesaria\n- Frases robóticas tipo \"operación registrada con éxito\"\n- Ambigüedad en montos o tasas\n- Ejecutar sin confirmación\n- Confundir al cliente sobre qué entrega/recibe\n- Mencionar stocks en consultas simples de precio\n- Usar datos de operaciones anteriores\n\n---\n\n## 💱 **MAPEO DE DIVISAS:**\n\n**Criptomonedas:**\n- BTC → Bitcoin\n- ETH → Ethereum\n- USDT → Tether\n- USDC → USD Coin\n- DAI → Dai\n\n**Monedas fiat:**\n- USD → Dólar estadounidense\n- ARS → Peso argentino\n- EUR → Euro\n- BRL → Real brasileño\n\n---\n\n## 🎯 **CASOS DE USO RESUMIDOS:**\n\n| Consulta del usuario | Acción | Mostrar stocks |\n|---------------------|--------|----------------|\n| \"¿A cuánto está el USD?\" | Solo precios | ❌ NO |\n| \"Quiero cambiar 100 USD\" | Cotización + Confirmar | ❌ NO (validar internamente) |\n| Usuario confirma operación | Ejecutar con datos del PASO 2 | ❌ NO |\n\n---\n\n## 💬 **EJEMPLO DE CONVERSACIÓN COMPLETA:**\n\n**Cliente:** Hola, quiero comprar 50 dólares\n\n**Vos:** ¡Hola! Perfecto, te paso la cotización para 50 USD.\n\n[Consultas internamente el stock]\n\n💱 **COTIZACIÓN DE CAMBIO**\n━━━━━━━━━━━━━━━━━━\n\n📤 **Entregás:** $77,500 ARS\n📥 **Recibís:** 50 USD\n💱 **Tasa:** $1,550 por dólar\n\n✅ ¿Confirmás esta operación?\n\n**Cliente:** Si\n\n**Vos:** ¡Listo! Procesando tu operación...\n\n[Ejecutás con divisa_origen: \"ARS\", cantidad_origen: 77500, divisa_destino: \"USD\", cantidad_destino: 50]\n\n✅ **OPERACIÓN CONFIRMADA**\n━━━━━━━━━━━━━━━━━━\n\n📤 Entregás: $77,500 ARS\n📥 Recibís: 50 USD\n💱 Tasa: $1,550\n\n🆔 **ID de Operación:** OPE-2024-00456\n📅 15/11/2025 - 14:35\n\n¡Listo! Coordiná la entrega con este ID.\nPodés venir a la financiera o pedimos delivery.\n\n---\n\n## 📸 **ANÁLISIS DE IMÁGENES - REGLAS CRÍTICAS:**\n\nCuando recibas una imagen:\n1. **Identificá el tipo de documento:** Cheque, comprobante, captura, etc.\n2. **Si es cheque:** Usá el formato de respuesta de PROCESAMIENTO DE CHEQUES (arriba)\n3. **Leé TODO con máximo detalle:** Números, fechas, nombres, sellos\n4. **NO inventes:** Si algo no se ve, decí \"No visible\" o \"Borroso\"\n5. **Verificá coherencia:** Los montos, fechas y nombres deben tener sentido\n\n🔴 **NUNCA:**\n- Inventar datos que no están en la imagen\n- Asumir información parcialmente visible\n- Confundir fecha de emisión con fecha de pago\n- Omitir el porcentaje de completitud\n\n---\n\n**IMPORTANTE FINAL:** \n\nCuando analices imágenes, describí TODO lo visible con máximo detalle. No inventes información que no veas. Si hay texto borroso o ilegible, indicalo claramente.\n\nCuando ejecutes operaciones, verificá DOS VECES que los datos coincidan con tu última cotización antes de llamar a ProcesarOperacionCambio.",
+          "passthroughBinaryImages": true
+        }
+      },
+      "id": "f28e2825-2f68-4943-82db-068aba94f1a8",
+      "name": "Crypto Financial Agent1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        400,
+        4128
+      ],
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "e8639061-3fac-4311-982a-e3dbfe338667",
+      "name": "OpenAI Chat Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        80,
+        4352
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "0txq0yPvPHYKwczN",
+          "name": "Bot_comercial_V1"
+        }
+      },
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "description": "Herramienta para obtener cotizaciones de criptomonedas y dólar argentino en tiempo real desde fuentes externas",
+        "workflowId": {
+          "__rl": true,
+          "value": "yA7GUW3rO2mM3fxX",
+          "mode": "list",
+          "cachedResultName": "Cotizaciones_tree"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        336,
+        4352
+      ],
+      "id": "abe61bfa-dddf-419e-9fdd-4ccd27180e7f",
+      "name": "Cotizador Externo"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        464,
+        4352
+      ],
+      "id": "37bd2777-a20f-4bf4-b972-4ffe41986c3c",
+      "name": "Calculator1"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Normalización').item.json.message.chatId }}",
+        "tableName": "chat_memory"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        208,
+        4352
+      ],
+      "id": "da2cb7b8-055f-4658-883a-b6779c50a9a1",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "BeqYldvITzTPaVDD",
+          "name": "Postgres-miguel-pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Consultar información de cotizaciones guardadas anteriormente",
+        "tableName": {
+          "__rl": true,
+          "value": "divisas_stock",
+          "mode": "list",
+          "cachedResultName": "divisas_stock"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        592,
+        4352
+      ],
+      "id": "726fbdf1-a198-4402-bbb3-26dd74e7a6c2",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "DjH14ekzQVDFDnz7",
+          "name": "Supabase Miguel_pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        672,
+        4560
+      ],
+      "id": "94940f8f-2516-4f3e-b49b-33027319a526",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "0txq0yPvPHYKwczN",
+          "name": "Bot_comercial_V1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Consulta el stock disponible, precios de compra y venta de divisas en el sistema. Puedes consultar una divisa específica o ver todas. SIEMPRE usar antes de procesar operaciones para verificar disponibilidad y obtener precios actuales.",
+        "workflowId": {
+          "__rl": true,
+          "value": "t9mCJxs3GO2Y12N3",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/t9mCJxs3GO2Y12N3",
+          "cachedResultName": "Tool - Consultar Stock Divisas"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        4352
+      ],
+      "id": "bafe3fce-59d9-47de-8617-3e7e7004d288",
+      "name": "Tool Stock Divisas",
+      "notes": "Crear workflow separado 'Tool - Consultar Stock Divisas' y pegar su ID aquí"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "b1c934c3-12d8-4c53-83d9-a14d239fa315",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1936,
+        3728
+      ],
+      "id": "a43de3b3-4cd2-49e2-abec-d1f68c6a65e2",
+      "name": "Webhook",
+      "webhookId": "b1c934c3-12d8-4c53-83d9-a14d239fa315"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://3.15.229.241:8080/message/sendText/Hemisferia",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "hemisferio-api-key-123"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "786a3924-a252-4dcb-a614-ff9afec90e90",
+      "name": "Enviar respuesta WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        4128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ====================================\n// TODO EN UNO: Extraer datos + Construir body\n// ====================================\n\n// Intentar obtener del webhook original o del nodo procesador\nlet telefono, instancia;\n\n// Si viene del webhook directo\nif ($json.body?.data) {\n  const data = $json.body.data;\n  telefono = data.key.remoteJid.replace('@s.whatsapp.net', '');\n  instancia = $json.body.instance || 'Hemisferia';\n}\n// Si viene de un nodo procesador anterior\nelse if ($json.telefono) {\n  telefono = $json.telefono;\n  instancia = $json.instancia || 'Hemisferia';\n}\n// Intentar desde el input del primer nodo\nelse {\n  const webhook = $('Webhook').item.json;\n  const data = webhook.body?.data || webhook.data;\n  telefono = data.key.remoteJid.replace('@s.whatsapp.net', '');\n  instancia = webhook.body?.instance || webhook.instance || 'Hemisferia';\n}\n\n// Obtener respuesta del Agente IA (este nodo)\nconst respuesta = $json.output;\n\n// Validar\nif (!telefono) {\n  throw new Error('No se pudo extraer el teléfono');\n}\n\nif (!respuesta) {\n  throw new Error('No hay respuesta del Agente IA');\n}\n\nreturn {\n  json: {\n    number: telefono,\n    textMessage: {\n      text: respuesta\n    },\n    instancia: instancia\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        4128
+      ],
+      "id": "a6471ed6-845b-4d5c-964c-0d465d72f194",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7510d93f-b85b-4377-9ee8-ccdfc7c0183d",
+              "name": "instance.serverUrl",
+              "value": "={{ $json.body.server_url }}",
+              "type": "string"
+            },
+            {
+              "id": "9057527f-8c2f-440e-8e27-9aab2339beaf",
+              "name": "instance.name",
+              "value": "={{ $json.body.instance }}",
+              "type": "string"
+            },
+            {
+              "id": "07ba8fe2-6900-46fc-8e3c-caea2cff0ed6",
+              "name": "instance.apiKey",
+              "value": "={{ $json.body.apikey }}",
+              "type": "string"
+            },
+            {
+              "id": "0608dcff-af06-484a-b1a4-56a85aeb701c",
+              "name": "message.id",
+              "value": "={{ $json.body.data.key.id }}",
+              "type": "string"
+            },
+            {
+              "id": "b4a81c65-a0f4-43be-89ea-f3142f41bd99",
+              "name": "message.chatId",
+              "value": "={{ $json.body.data.key.remoteJid }}",
+              "type": "string"
+            },
+            {
+              "id": "d7d594a8-8f6b-47dc-84ec-edfc12d62d89",
+              "name": "message.contentType",
+              "value": "={{ $json.body.data.message.conversation ? 'texto' : $json.body.data.message.audioMessage ? 'audio' : $json.body.data.message.imageMessage ? 'imagen' : null }}",
+              "type": "string"
+            },
+            {
+              "id": "bb7ff4ac-9cab-4a93-b310-4d97e2cff3f3",
+              "name": "message.content",
+              "value": "={{ $json.body.data.message.imageMessage?.caption ? $json.body.data.message.imageMessage.caption : $json.body.data.message.conversation ? $json.body.data.message.conversation : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "73250e0c-53d4-414a-bb28-3fa7b7058bc2",
+              "name": "message.timestamp",
+              "value": "={{ $json.body.data.messageTimestamp }}",
+              "type": "string"
+            },
+            {
+              "id": "a65a6ca5-e77c-4f94-8d06-698d960af487",
+              "name": "message.username",
+              "value": "={{ $json.body.data.pushName }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1712,
+        3728
+      ],
+      "id": "e1e30bf1-04a9-440e-a3e9-84a5e019244b",
+      "name": "Normalización"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.contentType }}",
+                    "rightValue": "texto",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "43111d84-6cf4-4556-86ec-7c6d1d3c473f"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Texto"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "7aa2b703-7fee-4660-97ba-50ea5b60e5dd",
+                    "leftValue": "={{ $json.message.contentType }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "362dbe04-6857-4311-882b-04681064af4c",
+                    "leftValue": "={{ $json.message.contentType}}",
+                    "rightValue": "imagen",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Imagen"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        -1264,
+        4096
+      ],
+      "id": "6d2d8d3e-589f-4c4c-bd6b-d3e34b07a72e",
+      "name": "Tipo de Contenido"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Normalización').item.json.instance.serverUrl }}/chat/getBase64FromMediaMessage/{{ $('Normalización').item.json.instance.name }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Normalización').item.json.instance.apiKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": {\n    \"key\": {\n      \"id\": \"{{ $('Normalización').item.json.message.id }}\"\n    }\n  },\n  \"convertToMp4\": false\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1040,
+        3920
+      ],
+      "id": "b27a47f9-c250-4a01-aaf3-3506fb2f552c",
+      "name": "Obtener Audio Base64"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "base64",
+        "options": {
+          "mimeType": "={{ $json.mimetype }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        -816,
+        3920
+      ],
+      "id": "d488eff8-ce3d-439c-be27-5f4b85ff4021",
+      "name": "Convertir Audio a Binary"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -592,
+        3920
+      ],
+      "id": "a02a8500-f005-47f6-996b-cf4ff8cb7fa4",
+      "name": "Transcribe a recording",
+      "credentials": {
+        "openAiApi": {
+          "id": "0txq0yPvPHYKwczN",
+          "name": "Bot_comercial_V1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a2945883-011c-4ab3-bc08-b3f2ec8f1e01",
+              "name": "content",
+              "value": "=<audio>\n{{ $json.text }}\n</audio>",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -368,
+        3920
+      ],
+      "id": "34b3dda6-3d55-4ab6-b1af-9bbbd3095e1d",
+      "name": "Audio content"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Normalización').item.json.instance.serverUrl }}/chat/getBase64FromMediaMessage/{{ $('Normalización').item.json.instance.name }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Normalización').item.json.instance.apiKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": {\n    \"key\": {\n      \"id\": \"{{ $('Normalización').item.json.message.id }}\"\n    }\n  },\n  \"convertToMp4\": false\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1040,
+        4112
+      ],
+      "id": "1111497f-f2fe-4a0f-82a8-e41acb5f0acd",
+      "name": "Obtener Imagen"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "base64",
+        "options": {
+          "mimeType": "={{ $json.mimetype }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        -816,
+        4112
+      ],
+      "id": "2536eb18-e972-4575-b90f-eb81cfb73f90",
+      "name": "Convertir imagen"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "text": "Describe la imagen",
+        "inputType": "base64",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -592,
+        4112
+      ],
+      "id": "4884071d-1dcc-448d-9363-b05b0ef1696f",
+      "name": "Describe imagen",
+      "credentials": {
+        "openAiApi": {
+          "id": "0txq0yPvPHYKwczN",
+          "name": "Bot_comercial_V1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a2945883-011c-4ab3-bc08-b3f2ec8f1e01",
+              "name": "content",
+              "value": "=<image>\n{{ $json.content }}\n</image>",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -368,
+        4112
+      ],
+      "id": "eb027abb-d16e-40b7-b2a7-87e27483681d",
+      "name": "Imagen content"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d50695e4-0896-40c7-939a-d0a884f7ff59",
+              "name": "content",
+              "value": "={{ $json.message.content }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -368,
+        4304
+      ],
+      "id": "615773e7-2ff3-40bc-9205-c3e53d0b553b",
+      "name": "Text content"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9a7fb19f-74a2-4267-b3f9-6620a3316bfb",
+              "name": "chat_input",
+              "value": "={{ $json.content }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -144,
+        4128
+      ],
+      "id": "23929a9f-6590-44e9-808f-4526efcca8a7",
+      "name": "Chat imput"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.content }}",
+                    "rightValue": "suscribir|quiero cotizaciones|recibir cotizaciones|activar cotizaciones|cotizacion diaria",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Suscribir"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.content }}",
+                    "rightValue": "desuscribir|cancelar cotizaciones|no quiero cotizaciones|baja cotizaciones|parar cotizaciones",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Desuscribir"
+            },
+            {
+              "conditions": {
+                "conditions": []
+              },
+              "renameOutput": true,
+              "outputKey": "Continuar Normal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7ae9aa81-ea02-4acc-897f-27437ee86705",
+      "name": "Detectar Comando Suscripción",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        -1488,
+        3712
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Normalización').item.json.instance.serverUrl }}/message/sendText/{{ $('Normalización').item.json.instance.name }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Normalización').item.json.instance.apiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $('Normalización').item.json.message.chatId }}\",\n  \"textMessage\": {\n    \"text\": \"✅ *¡Listo!*\\n\\nYa estás suscripto a las cotizaciones diarias.\\n\\nVas a recibir los precios todos los días a las 10:00 AM.\\n\\n💡 Para desuscribirte, escribí: *DESUSCRIBIR*\"\n  }\n}",
+        "options": {}
+      },
+      "id": "2135653e-e4e3-4dee-aa9f-f53e54633178",
+      "name": "Respuesta Suscripción",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1040,
+        3536
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Normalización').item.json.instance.serverUrl }}/message/sendText/{{ $('Normalización').item.json.instance.name }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Normalización').item.json.instance.apiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $('Normalización').item.json.message.chatId }}\",\n  \"textMessage\": {\n    \"text\": \"❌ *Te desuscribiste*\\n\\nYa no vas a recibir más cotizaciones diarias.\\n\\n💡 Para volver a suscribirte, escribí: *SUSCRIBIR*\"\n  }\n}",
+        "options": {}
+      },
+      "id": "c3adba6b-b392-46fb-940f-7ab34845c6ae",
+      "name": "Respuesta Desuscripción",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1040,
+        3728
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO suscripciones_cotizacion (chat_id, nombre, activo, fecha_suscripcion)\nVALUES (\n  '{{ $('Normalización').item.json.message.chatId }}',\n  '{{ $('Normalización').item.json.message.username }}',\n  true,\n  NOW()\n)\nON CONFLICT (chat_id) \nDO UPDATE SET \n  activo = true,\n  fecha_suscripcion = NOW(),\n  nombre = EXCLUDED.nombre\nRETURNING *;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1264,
+        3536
+      ],
+      "id": "60c79f3f-4766-499d-88ab-bd1696ebddf0",
+      "name": "Suscribir contacto",
+      "credentials": {
+        "postgres": {
+          "id": "BeqYldvITzTPaVDD",
+          "name": "Postgres-miguel-pepsi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE suscripciones_cotizacion\nSET activo = false\nWHERE chat_id = '{{ $('Normalización').item.json.message.chatId }}'\nRETURNING *;\n```\n\n---\n\n## ✅ Resumen:\n```\nNodo: Postgres\nAction: Execute a SQL query\nCredentials: [Configurar con datos de Supabase]\nQuery: [Pegar el SQL correspondiente]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1264,
+        3728
+      ],
+      "id": "554992c2-116d-4167-89a6-c79e064ef62c",
+      "name": "Desuscribir contacto",
+      "credentials": {
+        "postgres": {
+          "id": "BeqYldvITzTPaVDD",
+          "name": "Postgres-miguel-pepsi"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Crypto Financial Agent1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Crypto Financial Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cotizador Externo": {
+      "ai_tool": [
+        [
+          {
+            "node": "Crypto Financial Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Crypto Financial Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Crypto Financial Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "Crypto Financial Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool Stock Divisas": {
+      "ai_tool": [
+        [
+          {
+            "node": "Crypto Financial Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalización",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar respuesta WhatsApp": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Enviar respuesta WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalización": {
+      "main": [
+        [
+          {
+            "node": "Detectar Comando Suscripción",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tipo de Contenido": {
+      "main": [
+        [
+          {
+            "node": "Text content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Obtener Audio Base64",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Obtener Imagen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Audio Base64": {
+      "main": [
+        [
+          {
+            "node": "Convertir Audio a Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convertir Audio a Binary": {
+      "main": [
+        [
+          {
+            "node": "Transcribe a recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe a recording": {
+      "main": [
+        [
+          {
+            "node": "Audio content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audio content": {
+      "main": [
+        [
+          {
+            "node": "Chat imput",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Imagen": {
+      "main": [
+        [
+          {
+            "node": "Convertir imagen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convertir imagen": {
+      "main": [
+        [
+          {
+            "node": "Describe imagen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Describe imagen": {
+      "main": [
+        [
+          {
+            "node": "Imagen content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Imagen content": {
+      "main": [
+        [
+          {
+            "node": "Chat imput",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text content": {
+      "main": [
+        [
+          {
+            "node": "Chat imput",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat imput": {
+      "main": [
+        [
+          {
+            "node": "Crypto Financial Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detectar Comando Suscripción": {
+      "main": [
+        [
+          {
+            "node": "Suscribir contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Desuscribir contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tipo de Contenido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Suscribir contacto": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Suscripción",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Desuscribir contacto": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Desuscripción",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Webhook": [
+      {
+        "headers": {
+          "host": "primary-production-6661.up.railway.app",
+          "user-agent": "axios/1.6.8",
+          "content-length": "921",
+          "accept": "application/json, text/plain, */*",
+          "accept-encoding": "gzip, compress, deflate, br",
+          "content-type": "application/json",
+          "x-forwarded-for": "3.15.229.241",
+          "x-forwarded-host": "primary-production-6661.up.railway.app",
+          "x-forwarded-proto": "https",
+          "x-railway-edge": "railway/us-east4-eqdc4a",
+          "x-railway-request-id": "zMLAs5j9RsqAwXwywoOzXw",
+          "x-real-ip": "3.15.229.241",
+          "x-request-start": "1763147936321"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+          "event": "messages.upsert",
+          "instance": "Hemisferia",
+          "data": {
+            "key": {
+              "remoteJid": "5491127482322@s.whatsapp.net",
+              "fromMe": false,
+              "id": "3EB037B645C36FB17EBCCB"
+            },
+            "pushName": "Jonatan",
+            "message": {
+              "conversation": "quiero vender comprar 2 usd",
+              "messageContextInfo": {
+                "deviceListMetadata": {
+                  "senderKeyHash": "wQP80r/1LprbAw==",
+                  "senderTimestamp": "1761932951",
+                  "senderAccountType": "E2EE",
+                  "receiverAccountType": "E2EE",
+                  "recipientKeyHash": "CTOJZ/wX1lFM/w==",
+                  "recipientTimestamp": "1762988135"
+                },
+                "deviceListMetadataVersion": 2,
+                "messageSecret": "rNHb9lcX9Ho+GUCJ77r5Y861SYyF+u1FGo4SNKTRVk8="
+              }
+            },
+            "messageType": "conversation",
+            "messageTimestamp": 1763147936,
+            "owner": "Hemisferia",
+            "source": "web"
+          },
+          "destination": "https://primary-production-6661.up.railway.app/webhook/b1c934c3-12d8-4c53-83d9-a14d239fa315",
+          "date_time": "2025-11-14T16:18:56.232Z",
+          "sender": "5491121713962@s.whatsapp.net",
+          "server_url": "http://3.15.229.241:8080",
+          "apikey": "k6belq451scepgzvgjqw"
+        },
+        "webhookUrl": "https://primary-production-6661.up.railway.app/webhook/b1c934c3-12d8-4c53-83d9-a14d239fa315",
+        "executionMode": "production"
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "52d2515e8ec57cc41db077498298356feba70d5c6d22e5ab0bc92cc9467fc786"
+  }
+}
